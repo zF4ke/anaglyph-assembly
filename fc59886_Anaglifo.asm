@@ -2,16 +2,22 @@ section .data
 
 section .bss
     mode: resq 1
+
     left_filename: resq 1
     right_filename: resq 1
     anaglyph_filename: resq 1
-    image: resb 1048576
-    image_size: resb 3
+
+    image_right: resb 1048576
+    image_right_size: resd 1
+    image_right_offset: resd 1
+
+    image_left: resb 1048576
+    image_left_size: resd 1
+    image_left_offset: resd 1
 
 section .rodata
-    msg_error: db "Error: invalid arguments!", 10, "Help: C/M left.bmp right.mbp anaglyph.bmp", 0
-    msg_debug_C: db "Executing C Mode", 0
-    msg_debug_M: db "Executing M Mode", 0
+    msg_error_args: db "Error: invalid arguments!", 10, "Help: C/M left.bmp right.mbp anaglyph.bmp", 0
+    msg_error_size: db "Error: images are not the same size!", 0
 
 section .text
 global _start
@@ -22,7 +28,7 @@ _start:
     mov rcx, [rsp]
     ; check if there is at least four arguments
     cmp cl, 4
-    jle _error
+    jle _error_args
 
     ; get arguments
     ; get mode
@@ -39,13 +45,13 @@ _start:
     mov [anaglyph_filename], rsi
 
     ; debug
-    mov RDI, [mode]
+    mov rdi, [mode]
     call printStrLn
-    mov RDI, [left_filename]
+    mov rdi, [left_filename]
     call printStrLn
-    mov RDI, [right_filename]
+    mov rdi, [right_filename]
     call printStrLn
-    mov RDI, [anaglyph_filename]
+    mov rdi, [anaglyph_filename]
     call printStrLn
     ; end debug
 
@@ -56,45 +62,120 @@ _start:
     je _C
     cmp byte [rsi], 'M'
     je _M
-    jmp _error
+    jmp _error_args
 
 _C:
-    ; debug
-    mov RDI, msg_debug_C
-    call printStrLn
-    ; end debug
+    ; get images
+    call getImages
 
-    mov rdi, [left_filename]
-    call getImageFile
-
-    mov rdi, [anaglyph_filename]
-    call saveImageFile
+    ;mov rdi, [anaglyph_filename]
+    ;call saveImageFile
 
     jmp _end
     
 _M:
-    call getImageFile
+    ; get images
+    call getImages
 
     jmp _end
 
-_error:
-    mov RDI, msg_error
+_error_args:
+    mov rdi, msg_error_args
     call printStrLn
+    jmp _end
+
+_error_size:
+    mov rdi, msg_error_size
+    call printStrLn
+    jmp _end
 
 _end:
     call terminate
-    
-getImageFile:
+
+    ;saveImageFile:
     ; open file
-    mov rsi, image
+    ;mov rsi, image
+    ;mov rdx, [image_size]
+    ;call writeImageFile
+    ;ret
+
+getImages:
+    ; get left image
+    mov rdi, [left_filename]
+    mov rsi, image_left
     call readImageFile
-    ; move rax to image_size
-    mov [image_size], rax
+
+    ; get left image size
+    mov rdi, image_left
+    call getImageSize
+    mov [image_left_size], eax
+
+    ; get left image offset
+    mov rdi, image_left
+    call getImageOffset
+    mov [image_left_offset], eax
+
+    ; get right image
+    mov rdi, [right_filename]
+    mov rsi, image_right
+    call readImageFile
+
+    ; get right image size
+    mov rdi, image_right
+    call getImageSize
+    mov [image_right_size], eax
+
+    ; get right image offset
+    mov rdi, image_right
+    call getImageOffset
+    mov [image_right_offset], eax
+
+    ; check if images are the same size
+    ; if not, print error message and exit
+    mov rax, [image_left_size]
+    cmp rax, [image_right_size]
+    jne _error_size
+
     ret
 
-saveImageFile:
-    ; open file
-    mov rsi, image
-    mov rdx, [image_size]
-    call writeImageFile
+getImageSize:
+    ; save rbx
+    push rbx
+    ; get image size
+    xor rax, rax
+    xor rbx, rbx
+    mov bl, [rdi+5]
+    add rax, rbx
+    mov bl, [rdi+4]
+    shl rax, 8
+    add rax, rbx
+    mov bl, [rdi+3]
+    shl rax, 8
+    add rax, rbx
+    mov bl, [rdi+2]
+    shl rax, 8
+    add rax, rbx
+    ; restore rbx
+    pop rbx
+    ret
+
+getImageOffset:
+    ; save rbx
+    push rbx
+    ; get image offset
+    xor rax, rax
+    xor rbx, rbx
+    mov bl, [rdi+13]
+    add rax, rbx
+    mov bl, [rdi+12]
+    shl rax, 8
+    add rax, rbx
+    mov bl, [rdi+11]
+    shl rax, 8
+    add rax, rbx
+    mov bl, [rdi+10]
+    shl rax, 8
+    add rax, rbx
+    ; restore rbx
+    pop rbx
     ret
