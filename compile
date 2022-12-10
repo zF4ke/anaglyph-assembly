@@ -1,0 +1,2 @@
+nasm -F dwarf -f elf64 fc59886_Anaglifo.asm
+ld fc59886_Anaglifo.o Biblioteca.o -o Anaglifo
